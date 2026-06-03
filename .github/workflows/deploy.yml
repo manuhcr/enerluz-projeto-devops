@@ -1,4 +1,4 @@
-name: Deploy EnerLuz para EC2
+name: Deploy EnerLuz para EC2 com Docker
 
 on:
   push:
@@ -20,14 +20,32 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
 
-      - name: Copiar index.html para o EC2
+      - name: Copiar arquivos para o EC2
         run: |
           scp -i ~/.ssh/deploy_key \
-            index.html \
-            ${{ secrets.EC2_USER }}@${{ secrets.HOST }}:/tmp/index.html
+            index.html Dockerfile \
+            ${{ secrets.EC2_USER }}@${{ secrets.HOST }}:/home/ubuntu/enerluz/
 
-      - name: Mover arquivo e recarregar o Nginx
+      - name: Build e deploy com Docker
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.EC2_USER }}@${{ secrets.HOST }} \
-            "sudo mv /tmp/index.html /var/www/html/index.html && sudo systemctl reload nginx"
+            ${{ secrets.EC2_USER }}@${{ secrets.HOST }} << 'EOF'
+            cd /home/ubuntu/enerluz
+
+            # Parar e remover o container anterior se existir
+            docker stop enerluz-container 2>/dev/null || true
+            docker rm enerluz-container 2>/dev/null || true
+
+            # Construir a nova imagem a partir do Dockerfile
+            docker build -t enerluz-image:latest .
+
+            # Subir o container mapeando a porta 80
+            docker run -d \
+              --name enerluz-container \
+              -p 80:80 \
+              --restart unless-stopped \
+              enerluz-image:latest
+
+            echo "Deploy concluído com sucesso!"
+            docker ps
+          EOF
