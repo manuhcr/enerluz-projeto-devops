@@ -18,16 +18,16 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
 
       - name: Copiar index.html para o EC2
         run: |
           scp -i ~/.ssh/deploy_key \
             index.html \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/tmp/index.html
+            ${{ secrets.EC2_USER }}@${{ secrets.HOST }}:/tmp/index.html
 
       - name: Mover arquivo e recarregar o Nginx
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+            ${{ secrets.EC2_USER }}@${{ secrets.HOST }} \
             "sudo mv /tmp/index.html /var/www/html/index.html && sudo systemctl reload nginx"
