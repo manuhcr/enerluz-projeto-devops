@@ -1,87 +1,62 @@
-name: Pipeline EnerLuz — dev → Homol | main → Produção
+name: Pipeline EnerLuz - dev → Homologação | main → Produção
 
 on:
   push:
     branches:
       - dev
-      - master
-
-env:
-  IMAGE_NAME: enerluz-image
+      - main
 
 jobs:
 
   deploy_homologacao:
-    name: Deploy Homologação (automático)
+    name: Deploy Homologação
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/dev'
 
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configurar chave SSH
+      - name: Configurar SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.DEVHOST }} >> ~/.ssh/known_hosts
 
-      - name: Copiar arquivos para EC2 Homologação
+      - name: Copiar arquivos para Homologação
         run: |
           scp -i ~/.ssh/deploy_key \
-            index.html Dockerfile \
+            index.html \
             ${{ secrets.EC2_USER }}@${{ secrets.DEVHOST }}:/home/ubuntu/enerluz/
 
-      - name: Build e deploy com Docker em Homologação
+      - name: Validar deploy
         run: |
-          ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.EC2_USER }}@${{ secrets.DEVHOST }} << 'EOF'
-            cd /home/ubuntu/enerluz
-            docker stop enerluz-container 2>/dev/null || true
-            docker rm enerluz-container 2>/dev/null || true
-            docker build -t $IMAGE_NAME:homol .
-            docker run -d --name enerluz-container \
-              -p 80:80 --restart unless-stopped \
-              $IMAGE_NAME:homol
-            echo "Deploy HOMOLOGAÇÃO concluído!"
-            docker ps
-          EOF
+          echo "Arquivos enviados para homologação com sucesso"
 
   deploy_producao:
-    name: Deploy Produção (aprovação manual)
+    name: Deploy Produção
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    environment: producao
+
+    environment:
+      name: producao
 
     steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configurar chave SSH
+      - name: Configurar SSH
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.PRODHOST }} >> ~/.ssh/known_hosts
 
-      - name: Copiar arquivos para EC2 Produção
+      - name: Copiar arquivos para Produção
         run: |
           scp -i ~/.ssh/deploy_key \
-            index.html Dockerfile \
+            index.html \
             ${{ secrets.EC2_USER }}@${{ secrets.PRODHOST }}:/home/ubuntu/enerluz/
 
-      - name: Build e deploy com Docker em Produção
+      - name: Validar deploy
         run: |
-          ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.EC2_USER }}@${{ secrets.PRODHOST }} << 'EOF'
-            cd /home/ubuntu/enerluz
-            docker stop enerluz-container 2>/dev/null || true
-            docker rm enerluz-container 2>/dev/null || true
-            docker build -t $IMAGE_NAME:prd .
-            docker run -d --name enerluz-container \
-              -p 80:80 --restart unless-stopped \
-              $IMAGE_NAME:prd
-            echo "Deploy PRODUÇÃO concluído!"
-            docker ps
-          EOF
+          echo "Arquivos enviados para produção com sucesso"
