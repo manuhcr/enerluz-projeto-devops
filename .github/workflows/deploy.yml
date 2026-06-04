@@ -1,10 +1,10 @@
-name: Pipeline EnerLuz — CI/CD
+name: Pipeline EnerLuz — CI/CD com Docker
 
 on:
   push:
     branches:
       - dev
-      - master
+      - main
 
 jobs:
 
@@ -22,31 +22,63 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
-      - name: Copiar index.html para EC2
+      - name: Copiar arquivos para EC2
         run: |
           scp -i ~/.ssh/deploy_key \
-            index.html \
-            ${{ secrets.EC2_USER }}@${{ secrets.HOST }}:/tmp/index.html
+            index.html Dockerfile \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/enerluz/
 
-      - name: Publicar em homologação (porta 8080)
+      - name: Build e deploy Docker — Homologação
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.EC2_USER }}@${{ secrets.HOST }} << 'EOF'
-            sudo mkdir -p /var/www/homol
-            sudo mv /tmp/index.html /var/www/homol/index.html
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd /home/ubuntu/enerluz
+            docker stop enerluz-homol 2>/dev/null || true
+            docker rm enerluz-homol 2>/dev/null || true
+            docker build -t enerluz-image:homol .
+            docker run -d --name enerluz-homol \
+              -p 8080:80 --restart unless-stopped \
+              enerluz-image:homol
+            echo "Homologação no ar na porta 8080!"
+            docker ps
+          EOF
 
-            sudo tee /etc/nginx/sites-available/homol > /dev/null << 'NGINX'
-            server {
-              listen 8080;
-              root /var/www/homol;
-              index index.html;
-            }
-            NGINX
+  deploy_producao:
+    name: Deploy Produção (aprovação manual · porta 80)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: producao
 
-            sudo ln -sf /etc/nginx/sites-available/homol \
-              /etc/nginx/sites-enabled/homol
-            sudo nginx -t && sudo systemctl reload nginx
-            echo "Homologação publicada na porta 8080!"
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar chave SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Copiar arquivos para EC2
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            index.html Dockerfile \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/enerluz/
+
+      - name: Build e deploy Docker — Produção
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            cd /home/ubuntu/enerluz
+            docker stop enerluz-prd 2>/dev/null || true
+            docker rm enerluz-prd 2>/dev/null || true
+            docker build -t enerluz-image:prd .
+            docker run -d --name enerluz-prd \
+              -p 80:80 --restart unless-stopped \
+              enerluz-image:prd
+            echo "Produção no ar na porta 80!"
+            docker ps
           EOF
