@@ -33,7 +33,7 @@ jobs:
       - name: Build e deploy Docker — Homologação
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            ${{ secrets.EC2_USER }}@${{ secrets.HOST }} << 'EOF'
             cd /home/ubuntu/enerluz
             docker stop enerluz-homol 2>/dev/null || true
             docker rm enerluz-homol 2>/dev/null || true
@@ -48,7 +48,7 @@ jobs:
   deploy_producao:
     name: Deploy Produção (aprovação manual · porta 80)
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/master'
     environment: producao
 
     steps:
