@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - dev
-      - main
+      - master
 
 jobs:
 
@@ -22,13 +22,13 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
 
       - name: Copiar arquivos para EC2
         run: |
           scp -i ~/.ssh/deploy_key \
             index.html Dockerfile \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/enerluz/
+            ${{ secrets.EC2_USER }}@${{ secrets.HOST }}:/home/ubuntu/enerluz/
 
       - name: Build e deploy Docker — Homologação
         run: |
@@ -60,18 +60,18 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.HOST }} >> ~/.ssh/known_hosts
 
       - name: Copiar arquivos para EC2
         run: |
           scp -i ~/.ssh/deploy_key \
             index.html Dockerfile \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/ubuntu/enerluz/
+            ${{ secrets.EC2_USER }}@${{ secrets.HOST }}:/home/ubuntu/enerluz/
 
       - name: Build e deploy Docker — Produção
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            ${{ secrets.EC2_USER }}@${{ secrets.HOST }} << 'EOF'
             cd /home/ubuntu/enerluz
             docker stop enerluz-prd 2>/dev/null || true
             docker rm enerluz-prd 2>/dev/null || true
